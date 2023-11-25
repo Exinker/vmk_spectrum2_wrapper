@@ -57,7 +57,7 @@ class Device:
             self._device.run()
 
             with self.condition:
-                while not self.is_status_connected:
+                while not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING)):
                     if time.perf_counter() - time_start > timeout:
                         raise ConnectionError('Connection timeout error')  # TODO: add custom exception!
 
@@ -80,7 +80,11 @@ class Device:
     def set_exposure(self, exposure: MilliSecond) -> 'Device':
         """Set exposure."""
         assert self._device is not None, 'Connect and setup a device before'
-        assert self.is_status_connected, 'Device is not connected!'
+        assert self.is_status(
+            codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING),
+        ), 'Device is not ready to set exposure! Device status is {code}'.format(
+            code=self.status_code,
+        )
 
         if exposure == self._exposure:
             return self
@@ -139,33 +143,11 @@ class Device:
             return None
         return self.status.code
 
-    @property
-    def is_status_connected(self) -> bool:
+    def is_status(self, codes: tuple[DeviceStatusCode]) -> bool:
         if self.status is None:
             return False
 
-        return self.status_code in (
-            DeviceStatusCode.CONNECTED,
-            DeviceStatusCode.DONE_READING,  # после переподключения устройсто может находиться с состояние `DONE_READING`
-        )
-
-    @property
-    def is_status_reading(self) -> bool:
-        if self.status is None:
-            return False
-
-        return self.status_code in (
-            DeviceStatusCode.READING,
-        )
-
-    @property
-    def is_status_read(self) -> bool:
-        if self.status is None:
-            return False
-
-        return self.status_code in (
-            DeviceStatusCode.DONE_READING,
-        )
+        return self.status_code in codes
 
     # --------        handlers        --------
     def await_read(self, n_frames: int | None = None) -> Array[int]:
@@ -173,7 +155,9 @@ class Device:
         assert self._device is not None, 'Connect and setup a device before'
         assert self.storage is not None, 'Setup a storage before!'
         assert self.exposure is not None, 'Setup an exposure before!'
-        assert self.is_status_connected, 'Device is not ready to read! Device status is {code}'.format(
+        assert self.is_status(
+            codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING),
+        ), 'Device is not ready to read! Device status is {code}'.format(
             code=self.status_code,
         )
 
@@ -184,9 +168,9 @@ class Device:
         self._device.read(n_frames)
 
         with self.condition:
-            while not self.is_status_reading:
+            while not self.is_status(codes=(DeviceStatusCode.READING,)):
                 self.condition.wait(.01)
-            while not self.is_status_read:
+            while not self.is_status(codes=(DeviceStatusCode.DONE_READING,)):
                 self.condition.wait(.01)
 
         try:
@@ -199,7 +183,9 @@ class Device:
         assert self._device is not None, 'Connect and setup a device before'
         assert self.storage is not None, 'Setup a storage before!'
         assert self.exposure is not None, 'Setup an exposure before!'
-        assert self.is_status_connected, 'Device is not ready to read! Device status is {code}'.format(
+        assert self.is_status(
+            codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING),
+        ), 'Device is not ready to read! Device status is {code}'.format(
             code=self.status_code,
         )
 
