@@ -12,7 +12,8 @@ device =  Device(
         buffer_handler=None,
     ),
 )
-device.set_exposure(2)
+device = device.connect()
+device = device.set_exposure(2)
 
 
 # начать измерения (блокирующие)
