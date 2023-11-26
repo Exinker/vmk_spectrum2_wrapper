@@ -96,8 +96,18 @@ class BufferDeviceStorage:
                 finally:
                     self._buffer.clear()
 
+    def pull(self, clear: bool = True) -> Array[float]:
+        """Pull data from storage."""
+        
+        try:
+            return np.array(self.data)
+
+        finally:
+            if clear:
+                self.clear()
+
     def clear(self) -> None:
-        """Clear budder and data."""
+        """Clear buffer and data."""
         self._buffer.clear()
         self._data.clear()
 
