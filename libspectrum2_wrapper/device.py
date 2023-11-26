@@ -50,28 +50,27 @@ class ConnectionDeviceError(Exception):
 # --------        device        --------
 class Device:
 
-    def __init__(self, config: DeviceConfig, storage: DeviceStorage | None, verbose: bool = False) -> None:
+    def __init__(self, storage: DeviceStorage | None, verbose: bool = False) -> None:
 
         self.condition = threading.Condition()
 
         # device
-        self._config = config
         self._device = None
         self._status = None
         self._storage = storage
         self._exposure = None
 
-        self._change_exposure_delay = config.change_exposure_delay
         self._verbose = verbose
 
-    def create(self) -> 'Device':
+    def create(self, config: DeviceConfig) -> 'Device':
         """Create a device."""
 
         self._device = create_device(
-            config=self._config,
+            config=config,
             on_frame=self._on_frame,
             on_status=self._on_status,
         )
+        self._change_exposure_delay = config.change_exposure_delay
 
         return self
 
@@ -96,6 +95,18 @@ class Device:
 
         except ConnectionDeviceError as error:
             print(error)
+
+        #
+        return self
+
+    def disconnect(self) -> 'Device':
+        
+        # runup to disconnect
+        if self._device is None:
+            raise CreateDeviceError('Create a device before!')
+
+        # disconnect
+        self._device.stop()
 
         #
         return self
