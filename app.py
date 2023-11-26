@@ -6,16 +6,17 @@ from libspectrum2_wrapper.storage import BufferDeviceStorage
 
 # setup device
 device =  Device(
-    config=DeviceEthernetConfig(
-        ip='10.116.220.2',
-    ),
     storage=BufferDeviceStorage(
         buffer_size=1,
         buffer_handler=None,
     ),
     verbose=True,
 )
-device = device.create()
+device = device.create(
+    config=DeviceEthernetConfig(
+        ip='10.116.220.2',
+    ),
+)
 device = device.connect()
 device = device.set_exposure(2)
 
