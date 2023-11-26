@@ -96,6 +96,11 @@ class BufferDeviceStorage:
                 finally:
                     self._buffer.clear()
 
+    def clear(self) -> None:
+        """Clear budder and data."""
+        self._buffer.clear()
+        self._data.clear()
+
     # --------        others        --------
     def __len__(self) -> int:
         return len(self._data)
