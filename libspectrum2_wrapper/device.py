@@ -57,8 +57,8 @@ class Device:
         # device
         self._device = None
         self._status = None
-        self._storage = storage
         self._exposure = None
+        self._storage = storage
 
         self._verbose = verbose
 
@@ -70,6 +70,9 @@ class Device:
             on_frame=self._on_frame,
             on_status=self._on_status,
         )
+        self._status = None
+        self._exposure = None
+
         self._change_exposure_delay = config.change_exposure_delay
 
         return self
@@ -80,6 +83,10 @@ class Device:
         # runup to connect
         if self._device is None:
             raise CreateDeviceError('Create a device before!')
+        
+        print(repr(self.status_code))
+        if self.is_status(codes=(DeviceStatusCode.DISCONNECTED, )):
+            raise ConnectionDeviceError('Create a new device to reconnection!')
 
         # connect
         time_start = time.perf_counter()
@@ -87,9 +94,9 @@ class Device:
             self._device.run()
 
             with self.condition:
-                while not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING)):
+                while not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING, )):
                     if time.perf_counter() - time_start > timeout:
-                        raise ConnectionDeviceError('Connection timeout error')
+                        raise ConnectionDeviceError('Connection timeout error!')
 
                     self.condition.wait(.01)
 
@@ -99,14 +106,27 @@ class Device:
         #
         return self
 
-    def disconnect(self) -> 'Device':
+    def disconnect(self, timeout: Second = 5) -> 'Device':
+        """Disconnect from device."""
         
         # runup to disconnect
         if self._device is None:
             raise CreateDeviceError('Create a device before!')
 
         # disconnect
-        self._device.stop()
+        time_start = time.perf_counter()
+        try:
+            self._device.stop()
+
+            with self.condition:
+                while not self.is_status(codes=(DeviceStatusCode.DISCONNECTED, )):
+                    if time.perf_counter() - time_start > timeout:
+                        raise ConnectionDeviceError('Disconnection timeout error!')
+
+                    self.condition.wait(.01)
+
+        except ConnectionDeviceError as error:
+            print(error)
 
         #
         return self
