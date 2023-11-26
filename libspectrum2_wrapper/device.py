@@ -83,8 +83,7 @@ class Device:
         # runup to connect
         if self._device is None:
             raise CreateDeviceError('Create a device before!')
-        
-        print(repr(self.status_code))
+
         if self.is_status(codes=(DeviceStatusCode.DISCONNECTED, )):
             raise ConnectionDeviceError('Create a new device to reconnection!')
 
