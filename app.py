@@ -1,3 +1,5 @@
+import time
+
 from libspectrum2_wrapper.device import Device, DeviceEthernetConfig
 from libspectrum2_wrapper.storage import BufferDeviceStorage
 
@@ -11,7 +13,9 @@ device =  Device(
         buffer_size=1,
         buffer_handler=None,
     ),
+    verbose=True,
 )
+device = device.create()
 device = device.connect()
 device = device.set_exposure(2)
 
@@ -27,3 +31,4 @@ print(value.shape)
 value = device.read(1000)
 
 print(len(device.storage.data), len(device.storage.buffer))
+time.sleep(2)

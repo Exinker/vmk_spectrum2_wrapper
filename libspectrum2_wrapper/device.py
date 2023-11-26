@@ -26,6 +26,27 @@ class DeviceEthernetConfig:
 DeviceConfig: TypeAlias = DeviceEthernetConfig
 
 
+# --------        device exceptions        --------
+class CreateDeviceError(Exception):
+    pass
+
+
+class SetupDeviceError(Exception):
+    pass
+
+
+class StatusDeviceError(Exception):
+    pass
+
+
+class ReadDeviceError(Exception):
+    pass
+
+
+class ConnectionDeviceError(Exception):
+    pass
+
+
 # --------        device        --------
 class Device:
 
@@ -43,34 +64,41 @@ class Device:
         self._change_exposure_delay = config.change_exposure_delay
         self._verbose = verbose
 
+    def create(self) -> 'Device':
+        """Create a device."""
+
+        self._device = create_device(
+            config=self._config,
+            on_frame=self._on_frame,
+            on_status=self._on_status,
+        )
+
+        return self
+
     def connect(self, timeout: Second = 5) -> 'Device':
         """Connect to device."""
 
-        time_start = time.perf_counter()
+        # runup to connect
+        if self._device is None:
+            raise CreateDeviceError('Create a device before!')
 
+        # connect
+        time_start = time.perf_counter()
         try:
-            self._device = create_device(
-                config=self._config,
-                on_frame=self._on_frame,
-                on_status=self._on_status,
-            )
             self._device.run()
 
             with self.condition:
                 while not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING)):
                     if time.perf_counter() - time_start > timeout:
-                        raise ConnectionError('Connection timeout error')  # TODO: add custom exception!
+                        raise ConnectionDeviceError('Connection timeout error')
 
                     self.condition.wait(.01)
 
-        except ConnectionError as error:
+        except ConnectionDeviceError as error:
             print(error)
 
-        finally:
-            if self._verbose:
-                print('Status code: {code}.'.format(code=self.status_code))
-
-            return self
+        #
+        return self
 
     # --------        exposure        --------
     @property
@@ -79,32 +107,39 @@ class Device:
 
     def set_exposure(self, exposure: MilliSecond) -> 'Device':
         """Set exposure."""
-        assert self._device is not None, 'Connect and setup a device before'
-        assert self.is_status(
-            codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING),
-        ), 'Device is not ready to set exposure! Device status is {code}'.format(
-            code=self.status_code,
-        )
-
         if exposure == self._exposure:
             return self
 
-        # setup exposure
+        # runup
+        self._runup_to_set_exposure()
+
+        # set
         try:
             self._device.set_exposure(self._to_microsecond(exposure))
-
         except AssertionError as error:
             print(error)
-
         else:
             self._exposure = exposure
-            time.sleep(self._to_second(self._change_exposure_delay)) # delay to setup exposure
+            time.sleep(self._to_second(self._change_exposure_delay)) # delay after exposure update
 
-        finally:
-            if self._verbose:
-                print('Exposure: {exposure} ms.'.format(exposure=self.exposure))
+        # 
+        if self._verbose:
+            print('Set exposure: {exposure} ms.'.format(exposure=self.exposure))
 
-            return self
+        return self
+
+    def _runup_to_set_exposure(self) -> bool:
+        """Runup device to set exposure."""
+
+        # check components
+        if self._device is None:
+            raise CreateDeviceError('Create a device before!')
+
+        if not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING)):
+            message = 'Device is not ready to set exposure! Device status is `{code}`. Connect to device before!'.format(
+                code=self.status_code,
+            )
+            raise StatusDeviceError(message)
 
     @staticmethod
     def _to_microsecond(__exposure: MilliSecond) -> MicroSecond:
@@ -149,23 +184,17 @@ class Device:
 
         return self.status_code in codes
 
-    # --------        handlers        --------
+    # --------        read        --------
     def await_read(self, n_frames: int | None = None) -> Array[int]:
         """Прочитать `n_frames` кадров и вернуть их (blocking)."""
-        assert self._device is not None, 'Connect and setup a device before'
-        assert self.storage is not None, 'Setup a storage before!'
-        assert self.exposure is not None, 'Setup an exposure before!'
-        assert self.is_status(
-            codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING),
-        ), 'Device is not ready to read! Device status is {code}'.format(
-            code=self.status_code,
-        )
 
-        if n_frames is None:
-            n_frames = self.storage.buffer_size
+        # runup
+        self._runup_to_read()
 
         # read
-        self._device.read(n_frames)
+        self._device.read(
+            self.storage.buffer_size if n_frames is None else n_frames
+        )
 
         with self.condition:
             while not self.is_status(codes=(DeviceStatusCode.READING,)):
@@ -173,27 +202,40 @@ class Device:
             while not self.is_status(codes=(DeviceStatusCode.DONE_READING,)):
                 self.condition.wait(.01)
 
-        try:
-            return np.array(self.storage.data)
-        finally:
-            self.storage.data.clear()
+        return self.storage.pull()
 
     def read(self, n_frames: int | None = None) -> None:
         """Прочитать `n_frames` кадров в `storage` (non blocking)."""
-        assert self._device is not None, 'Connect and setup a device before'
-        assert self.storage is not None, 'Setup a storage before!'
-        assert self.exposure is not None, 'Setup an exposure before!'
-        assert self.is_status(
-            codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING),
-        ), 'Device is not ready to read! Device status is {code}'.format(
-            code=self.status_code,
-        )
 
-        if n_frames is None:
-            n_frames = self.storage.buffer_size
+        # runup
+        self._runup_to_read()
 
         # read
-        self._device.read(n_frames)
+        self._device.read(
+            self.storage.buffer_size if n_frames is None else n_frames
+        )
+
+    def _runup_to_read(self) -> bool:
+        """Runup device to read data."""
+
+        # check components
+        if self._device is None:
+            raise CreateDeviceError('Create a device before!')
+
+        if self.storage is None:
+            raise SetupDeviceError('Setup a storage before!')
+
+        if self.exposure is None:
+            raise SetupDeviceError('Setup a exposure before!')
+        
+        if not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING)):
+            message = 'Device is not ready to read! Device status is `{code}`.'.format(
+                code=self.status_code,
+            )
+            raise StatusDeviceError(message)
+
+        # clear storage
+        self.storage.clear()
 
     # --------        callbacks        --------
     def _on_frame(self, frame: Array[int]) -> None:
@@ -206,27 +248,9 @@ class Device:
         with self.condition:
             self.condition.notify_all()
 
-        # exception
-        if status.code == DeviceStatusCode.ERROR:
-            timeout = self.storage._finished_at - self.storage._started_at
-            content = '\n'.join([
-                'description: {description}'.format(
-                    description=status.description,
-                ),
-                'buffer: {size:0>4s}'.format(
-                    size=len(self.storage._buffer),
-                ),
-                'data: {str(size):0>4s}'.format(
-                    size=len(self.storage.data),
-                ),
-                'running for {hours}:{minutes}:{seconds}'.format(
-                    hours=f'{str(int((timeout) // 3600)):0>2s}',
-                    minutes=f'{str(int((timeout) // 60)):0>2s}',
-                    seconds=f'{str(int((timeout) % 60)):0>2s}',
-                ),
-            ])
-
-            raise ConnectionError(content)  # TODO: add custom exception!
+        # verbose
+        if self._verbose:
+            print('Status code: `{code}`.'.format(code=self.status_code))
 
     # --------        callbacks        --------
     def __repr__(self) -> str:
@@ -235,7 +259,7 @@ class Device:
         return '{name}({content})'.format(
             name=cls.__name__,
             content=', '.join([
-                'status code: {code}'.format(
+                'status code: `{code}`'.format(
                     code=self.status_code,
                 ),
                 'exposure: {exposure}{units}'.format(
