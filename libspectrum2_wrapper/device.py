@@ -50,7 +50,7 @@ class ConnectionDeviceError(Exception):
 # --------        device        --------
 class Device:
 
-    def __init__(self, storage: DeviceStorage | None, verbose: bool = False) -> None:
+    def __init__(self, storage: DeviceStorage, verbose: bool = False) -> None:
 
         self.condition = threading.Condition()
 
@@ -65,7 +65,19 @@ class Device:
     def create(self, config: DeviceConfig) -> 'Device':
         """Create a device."""
 
-        self._device = create_device(
+        def _create_device(config: DeviceConfig, on_frame: Callable, on_status: Callable | None) -> Device:
+            """Create device by config and callbacks."""
+
+            if isinstance(config, DeviceEthernetConfig):
+                device = DeviceManager(config.ip)
+                device.set_frame_callback(on_frame)
+                device.set_status_callback(on_status)
+
+                return device
+
+            raise ValueError(f'Device {type(config).__name__} is not supported yet!')
+
+        self._device = _create_device(
             config=config,
             on_frame=self._on_frame,
             on_status=self._on_status,
@@ -80,7 +92,7 @@ class Device:
     def connect(self, timeout: Second = 5) -> 'Device':
         """Connect to device."""
 
-        # runup to connect
+        # checkup to connect
         if self._device is None:
             raise CreateDeviceError('Create a device before!')
 
@@ -108,7 +120,7 @@ class Device:
     def disconnect(self, timeout: Second = 5) -> 'Device':
         """Disconnect from device."""
         
-        # runup to disconnect
+        # checkup to disconnect
         if self._device is None:
             raise CreateDeviceError('Create a device before!')
 
@@ -140,8 +152,8 @@ class Device:
         if exposure == self._exposure:
             return self
 
-        # runup
-        self._runup_to_set_exposure()
+        # checkup
+        self._checkup_to_set_exposure()
 
         # set
         try:
@@ -158,13 +170,14 @@ class Device:
 
         return self
 
-    def _runup_to_set_exposure(self) -> bool:
-        """Runup device to set exposure."""
+    def _checkup_to_set_exposure(self) -> bool:
+        """Checkup device to set exposure."""
 
         # check components
         if self._device is None:
             raise CreateDeviceError('Create a device before!')
 
+        # check status
         if not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING)):
             message = 'Device is not ready to set exposure! Device status is `{code}`. Connect to device before!'.format(
                 code=self.status_code,
@@ -218,8 +231,8 @@ class Device:
     def await_read(self, n_frames: int | None = None) -> Array[int]:
         """Прочитать `n_frames` кадров и вернуть их (blocking)."""
 
-        # runup
-        self._runup_to_read()
+        # checkup
+        self._checkup_to_read()
 
         # read
         self._device.read(
@@ -237,16 +250,16 @@ class Device:
     def read(self, n_frames: int | None = None) -> None:
         """Прочитать `n_frames` кадров в `storage` (non blocking)."""
 
-        # runup
-        self._runup_to_read()
+        # checkup
+        self._checkup_to_read()
 
         # read
         self._device.read(
             self.storage.buffer_size if n_frames is None else n_frames
         )
 
-    def _runup_to_read(self) -> bool:
-        """Runup device to read data."""
+    def _checkup_to_read(self) -> bool:
+        """Checkup device to read data."""
 
         # check components
         if self._device is None:
@@ -258,6 +271,7 @@ class Device:
         if self.exposure is None:
             raise SetupDeviceError('Setup a exposure before!')
         
+        # check status
         if not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING)):
             message = 'Device is not ready to read! Device status is `{code}`.'.format(
                 code=self.status_code,
@@ -300,13 +314,3 @@ class Device:
         )
 
 
-def create_device(config: DeviceConfig, on_frame: Callable, on_status: Callable | None) -> Device:
-
-    if isinstance(config, DeviceEthernetConfig):
-        device = DeviceManager(config.ip)
-        device.set_frame_callback(on_frame)
-        device.set_status_callback(on_status)
-
-        return device
-
-    raise ValueError(f'Device {type(config).__name__} is not supported yet!')
