@@ -1,0 +1,8 @@
+-r requirements.txt
+
+tqdm
+jupyter
+
+numpy
+matplotlib
+
