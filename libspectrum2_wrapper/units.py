@@ -41,13 +41,19 @@ def get_units_scale(units: Units) -> float:
     return get_units_clipping(units) / get_units_clipping(Units.digit)
 
 
-def get_units_label(units: Units) -> str:
+def get_units_label(units: Units, is_enclosed: bool = True) -> str:
     """Get units's label."""
 
     match units:
-        case Units.digit:
-            return r''
         case Units.percent:
-            return r'[%]'
+            label = r'%'
         case Units.electron:
-            return r'[$e^{-}$]'
+            label = r'$e^{-}$'
+        case _:
+            label = r''
+
+    #
+    if is_enclosed:
+        return f'[{label}]'
+
+    return label
