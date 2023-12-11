@@ -1,5 +1,4 @@
 import time
-from functools import partial
 from typing import Callable, TypeAlias
 
 import numpy as np
