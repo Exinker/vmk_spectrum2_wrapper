@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-from libspectrum2_wrapper import DESCRIPTION, VERSION, NAME, AUTHOR_NAME, AUTHOR_EMAIL
+from vmk_spectrum2_wrapper import DESCRIPTION, VERSION, NAME, AUTHOR_NAME, AUTHOR_EMAIL
 
 
 setup(

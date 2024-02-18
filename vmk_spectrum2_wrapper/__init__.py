@@ -1,7 +1,6 @@
-
-NAME = 'vmk_spectrum2-wrapper'
-DESCRIPTION = '`vmk_spectrum2-wrapper` is a wrapper for `vmk_spectrum2` library.'
-VERSION = '0.0.4'
+NAME = 'vmk_spectrum2_wrapper'
+DESCRIPTION = 'It is a wrapper for `vmk_spectrum2` library.'
+VERSION = '0.0.5'
 
 AUTHOR_NAME = 'Pavel Vaschenko'
 AUTHOR_EMAIL = 'vaschenko@vmk.ru'

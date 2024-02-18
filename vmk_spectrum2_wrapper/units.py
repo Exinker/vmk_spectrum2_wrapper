@@ -36,6 +36,7 @@ def get_units_clipping(units: Units) -> float:
 
     raise TypeError(f'Units {units} is not supported yet!')
 
+
 def get_units_scale(units: Units) -> float:
     """Get unit's scale coefficient."""
 

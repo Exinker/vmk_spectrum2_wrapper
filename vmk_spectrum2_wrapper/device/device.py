@@ -1,53 +1,22 @@
 import sys
 import time
 import threading
-from dataclasses import dataclass
-from typing import Callable, TypeAlias
+from typing import Callable
 
 import numpy as np
 
 from pyspectrum2 import DeviceManager, DeviceStatusCode, DeviceStatus
 
-from .alias import Array, Second, MilliSecond, MicroSecond
-from .storage import DeviceStorage
+from vmk_spectrum2_wrapper.storage import DeviceStorage
+from vmk_spectrum2_wrapper.typing import Array, MicroSecond, MilliSecond, Second
+
+from .config import DeviceConfig, DeviceEthernetConfig
+from .exceptions import CreateDeviceError, ConnectionDeviceError, StatusDeviceError, SetupDeviceError
 
 
 sys.path.append('cmake-build-debug/binding')
 
 
-# --------        device config        --------
-@dataclass
-class DeviceEthernetConfig:
-    ip: str
-
-    change_exposure_delay: MilliSecond = 1000
-
-
-DeviceConfig: TypeAlias = DeviceEthernetConfig
-
-
-# --------        device exceptions        --------
-class CreateDeviceError(Exception):
-    pass
-
-
-class SetupDeviceError(Exception):
-    pass
-
-
-class StatusDeviceError(Exception):
-    pass
-
-
-class ReadDeviceError(Exception):
-    pass
-
-
-class ConnectionDeviceError(Exception):
-    pass
-
-
-# --------        device        --------
 class Device:
 
     def __init__(self, storage: DeviceStorage, verbose: bool = False) -> None:
@@ -119,7 +88,7 @@ class Device:
 
     def disconnect(self, timeout: Second = 5) -> 'Device':
         """Disconnect from device."""
-        
+
         # checkup to disconnect
         if self._device is None:
             raise CreateDeviceError('Create a device before!')
@@ -162,9 +131,9 @@ class Device:
             print(error)
         else:
             self._exposure = exposure
-            time.sleep(self._to_second(self._change_exposure_delay)) # delay after exposure update
+            time.sleep(self._to_second(self._change_exposure_delay))  # delay after exposure update
 
-        # 
+        #
         if self._verbose:
             print('Set exposure: {exposure} ms.'.format(exposure=self.exposure))
 
@@ -207,7 +176,7 @@ class Device:
         """"""
         assert isinstance(storage, DeviceStorage)
         self._storage = storage
-        
+
         return self
 
     # --------        status        --------
@@ -270,7 +239,7 @@ class Device:
 
         if self.exposure is None:
             raise SetupDeviceError('Setup a exposure before!')
-        
+
         # check status
         if not self.is_status(codes=(DeviceStatusCode.CONNECTED, DeviceStatusCode.DONE_READING)):
             message = 'Device is not ready to read! Device status is `{code}`.'.format(
@@ -296,7 +265,7 @@ class Device:
         if self._verbose:
             print('Status code: `{code}`.'.format(code=self.status_code))
 
-    # --------        callbacks        --------
+    # --------        private        --------
     def __repr__(self) -> str:
         cls = self.__class__
 
@@ -308,7 +277,7 @@ class Device:
                 ),
                 'exposure: {exposure}{units}'.format(
                     exposure='None' if self.exposure is None else f'{self.exposure}',
-                    units='' if self.exposure is None else f'ms',
+                    units='' if self.exposure is None else 'ms',
                 ),
             ])
         )

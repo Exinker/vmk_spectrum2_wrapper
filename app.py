@@ -1,11 +1,11 @@
 import time
 
-from libspectrum2_wrapper.device import Device, DeviceEthernetConfig
-from libspectrum2_wrapper.storage import BufferDeviceStorage
+from vmk_spectrum2_wrapper.device import Device, DeviceEthernetConfig
+from vmk_spectrum2_wrapper.storage import BufferDeviceStorage
 
 
 # setup device
-device =  Device(
+device = Device(
     storage=BufferDeviceStorage(
         buffer_size=1,
         buffer_handler=None,
@@ -20,13 +20,11 @@ device = device.create(
 device = device.connect()
 device = device.set_exposure(2)
 
-
 # начать измерения (блокирующие)
 value = device.await_read(1000)
 
 print(len(device.storage.data), len(device.storage.buffer))
 print(value.shape)
-
 
 # начать измерения в буфер (не блокирующие)
 value = device.read(1000)

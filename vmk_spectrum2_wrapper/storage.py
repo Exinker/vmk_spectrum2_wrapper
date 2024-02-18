@@ -3,8 +3,8 @@ from typing import Callable, TypeAlias
 
 import numpy as np
 
-from .alias import Array, Second
-from .units import Units, get_units_scale
+from vmk_spectrum2_wrapper.typing import Array, Second
+from vmk_spectrum2_wrapper.units import Units, get_units_scale
 
 
 # --------        device storage        --------
@@ -97,7 +97,7 @@ class BufferDeviceStorage:
 
     def pull(self, clear: bool = True) -> Array[float]:
         """Pull data from storage."""
-        
+
         try:
             return np.array(self.data)
 
@@ -110,7 +110,7 @@ class BufferDeviceStorage:
         self._buffer.clear()
         self._data.clear()
 
-    # --------        others        --------
+    # --------        private        --------
     def __len__(self) -> int:
         return len(self._data)
 
